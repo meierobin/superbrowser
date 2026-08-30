@@ -23,6 +23,8 @@
 //   log(await a.p.title(), await b.p.title())
 
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -147,8 +149,19 @@ const log = (...xs) =>
 
 // ── verbinden ──────────────────────────────────────────────────────────────
 const { chromium } = loadPlaywright();
-let browser;
-try {
+
+/// Läuft der Browser nicht, selbst starten — statt den Agenten mit einer
+/// Fehlermeldung zurückzuschicken, damit er einen zweiten Befehl absetzt.
+/// Das ist der häufigste Grund, warum ein Skript scheitert, und der am
+/// leichtesten zu behebende.
+function browserStarten() {
+  const starter = join(HIER, "start-browser.sh");
+  if (!existsSync(starter)) return false;
+  const r = spawnSync("/bin/bash", [starter], { stdio: "ignore", timeout: 30000 });
+  return r.status === 0;
+}
+
+async function verbinden() {
   // Ohne einen einzigen offenen Tab lehnt Playwright die Verbindung ab
   // ("Browser context management is not supported"). Dann selbst einen anlegen.
   const targets = await fetch(`${CDP_URL}/json/list`)
@@ -157,13 +170,30 @@ try {
   if (!targets.some?.((t) => t.type === "page")) {
     await fetch(`${CDP_URL}/json/new?about:blank`, { method: "PUT" }).catch(() => {});
   }
-  browser = await chromium.connectOverCDP(CDP_URL, { timeout: 8000 });
-} catch (err) {
-  process.stderr.write(
-    `Keine Verbindung zu ${CDP_URL} — läuft der Browser?\n` +
-      `Starten mit: ~/.superbrowser/tools/start-browser.sh\n(${err.message})\n`,
-  );
-  process.exit(3);
+  return chromium.connectOverCDP(CDP_URL, { timeout: 8000 });
+}
+
+let browser;
+try {
+  browser = await verbinden();
+} catch {
+  // Zweiter Anlauf, diesmal mit selbst gestartetem Browser.
+  if (!browserStarten()) {
+    process.stderr.write(
+      `Keine Verbindung zu ${CDP_URL}, und start-browser.sh liegt nicht neben\n` +
+        `dieser Datei. Bitte den Browser von Hand starten.\n`,
+    );
+    process.exit(3);
+  }
+  try {
+    browser = await verbinden();
+    lines.push("(Browser war aus — selbst gestartet.)");
+  } catch (err) {
+    process.stderr.write(
+      `Der Browser wurde gestartet, antwortet aber nicht auf ${CDP_URL}.\n(${err.message})\n`,
+    );
+    process.exit(3);
+  }
 }
 
 const ctx = browser.contexts()[0];

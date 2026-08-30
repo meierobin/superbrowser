@@ -31,6 +31,9 @@ Nichts davon fasst dein normales Chrome an.
 
 ## Browser starten
 
+Meistens gar nicht nötig: Läuft er nicht, startet der Code-Modus ihn selbst.
+Von Hand geht es so:
+
 ```sh
 ~/.superbrowser/tools/start-browser.sh              # leer
 ~/.superbrowser/tools/start-browser.sh https://…    # gleich mit einer Seite

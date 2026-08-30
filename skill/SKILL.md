@@ -6,10 +6,14 @@ description: Steuert einen eigenen Arbeits-Browser (Chrome for Testing) über de
 # Arbeits-Browser
 
 Es gibt genau EINEN Browser für Agenten: ein eigener Chrome for Testing mit
-eigenem Profil auf Port `9333`, gestartet über
-`~/.superbrowser/tools/start-browser.sh`. Das persönliche Chrome des Nutzers
-NIE ansteuern — es ist eine andere Installation, und darin liegen echte
-Logins und offene Arbeit.
+eigenem Profil auf Port `9333`. Das persönliche Chrome des Nutzers NIE
+ansteuern — es ist eine andere Installation, und darin liegen echte Logins
+und offene Arbeit.
+
+**Du musst ihn nicht starten.** Läuft er nicht, startet der Code-Modus ihn
+selbst und macht weiter; in der Ausgabe steht dann „Browser war aus — selbst
+gestartet". Von Hand geht es mit
+`~/.superbrowser/tools/start-browser.sh [URL]`.
 
 Bedient wird er über den **`custom-chrome`**-MCP; der hängt fest an diesem
 Browser. Sind seine Tools deferred, einmal via ToolSearch danach suchen. Keine
@@ -142,11 +146,9 @@ Entfernt wird sie am Ende der Bedienung: `vignette(false)` bzw. `__cd.off()`.
   EINEN Screenshot machen und ansehen — ein Blick erklärt oft, was der
   a11y-Baum nicht zeigt (Cookie-Banner, Overlays, Canvas, Ladezustände).
   Danach zurück zu gezielten Aktionen, nicht dauerhaft auf Pixel umsteigen.
-- **„Could not connect" / „ECONNREFUSED":** Der Browser läuft nicht:
-
-```sh
-~/.superbrowser/tools/start-browser.sh
-```
+- **„Could not connect" / „ECONNREFUSED":** Der Code-Modus startet den Browser
+  selbst nach; kommt die Meldung trotzdem, ist die Installation unvollständig
+  — dann `./install.sh` im geklonten Ordner noch einmal laufen lassen.
 
 - **Fertig-Meldung bei UI-Arbeit:** geänderte Seite laden, Konsole prüfen,
   einen finalen Screenshot ansehen.
