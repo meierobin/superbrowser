@@ -261,10 +261,21 @@ function helfer(hole) {
   // heilt auch ein Tab, den addInitScript nicht erwischt hat.
   // Als Anweisungsblock, nicht als Komma-Ausdruck: die Datei enthält
   // Kommentare und schließt mit einem Semikolon.
-  const paint = (js) =>
-    hole()
+  const paint = (js) => {
+    // Nie den Lauf abbrechen: Das Overlay ist Schmuck, kein Ergebnis. Vorher
+    // warf `hole()` SYNCHRON, wenn keine Seite mehr offen war — dann half
+    // auch das .catch() nicht mehr, und die gesammelte Ausgabe eines ganzen
+    // Skripts ging beim Aufräumen am Ende verloren.
+    let seite;
+    try {
+      seite = hole();
+    } catch {
+      return Promise.resolve();
+    }
+    return seite
       .evaluate(`(() => { ${OVERLAY}\n; return window.__cd && (${js}) })()`)
       .catch(() => {});
+  };
 
   const say = (text) => paint(`__cd.say(${JSON.stringify(text || "")})`);
 

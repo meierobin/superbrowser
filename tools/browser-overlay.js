@@ -64,12 +64,33 @@
                transition: opacity .18s ease-out, transform .3s ease-out; }
   `;
 
-  const CURSOR_SVG =
-    '<span><svg width="26" height="26" viewBox="0 0 24 24">' +
-    '<path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947' +
-    "l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z\" " +
-    'fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>' +
-    "</svg></span>";
+  // Der Zeiger wird Knoten für Knoten gebaut, nicht per innerHTML.
+  //
+  // Seiten mit Trusted Types — Google gehört dazu — brechen jede
+  // innerHTML-Zuweisung ab: „This document requires 'TrustedHTML'
+  // assignment." Das Overlay stand dort dann ohne Cursor da, mit zwei
+  // Fehlern in der Konsole, die wie ein Fehler der Seite aussahen.
+  const svgNS = "http://www.w3.org/2000/svg";
+  const zeigerBauen = () => {
+    const huelle = document.createElement("span");
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("width", "26");
+    svg.setAttribute("height", "26");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    const pfad = document.createElementNS(svgNS, "path");
+    pfad.setAttribute(
+      "d",
+      "M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947"
+        + "l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z",
+    );
+    pfad.setAttribute("fill", "#fff");
+    pfad.setAttribute("stroke", "#111");
+    pfad.setAttribute("stroke-width", "1.5");
+    pfad.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(pfad);
+    huelle.appendChild(svg);
+    return huelle;
+  };
 
   let host = null;
   let root = null;
@@ -92,7 +113,7 @@
     cur = document.createElement("div");
     cur.id = "cur";
     cur.className = "layer";
-    cur.innerHTML = CURSOR_SVG;
+    cur.appendChild(zeigerBauen());
     chip = document.createElement("div");
     chip.id = "say";
     root.append(style, vig, cur, chip);
