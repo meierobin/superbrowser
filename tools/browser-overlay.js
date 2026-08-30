@@ -1,13 +1,6 @@
 // Das Overlay, das zeigt: hier wird gerade ferngesteuert.
 //
-// EINE Quelle für drei Verbraucher — vorher stand der Code dreimal leicht
-// verschieden herum und driftete auseinander:
-//   - src-tauri/src/lib.rs (inject_vignette_on) bindet diese Datei per
-//     include_str! ein und schickt sie beim open_window/claim_window per CDP
-//     in jeden offenen Tab,
-//   - ~/.parallell/tools/browser.mjs liest sie aus ~/.parallell/tools/
-//     (dorthin gelegt von install_parallell_browser_skill),
-//   - der Skill parallell-browser beschreibt sie.
+// browser.mjs lädt diese Datei und schickt sie in jeden Tab, den es bedient.
 //
 // Warum der Aufbau so kompliziert aussieht: Ein schlichtes
 // `document.body.appendChild(div)` überlebt keine echte Seite. Gemessen am

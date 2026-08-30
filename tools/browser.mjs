@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Code-Modus für den Arbeits-Browser: mehrere Schritte in EINEM Aufruf.
 //
-//   node ~/.agent-browser/tools/browser.mjs <<'EOF'
+//   node ~/.superbrowser/tools/browser.mjs <<'EOF'
 //   await open('http://localhost:3001')
 //   await click('button[type=submit]', 'Formular absenden')
 //   log(await p.textContent('.toast'))
@@ -22,22 +22,22 @@
 //   await Promise.all([a.click('#kaufen', 'kaufen'), b.fill('#mail', 'x@y.z')])
 //   log(await a.p.title(), await b.p.title())
 
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const CDP_URL = process.env.AGENT_BROWSER_URL || "http://127.0.0.1:9333";
+const CDP_URL = process.env.SUPERBROWSER_URL || "http://127.0.0.1:9333";
 const ANIM = process.env.PB_ANIM !== "0"; // Cursor-Animation abschaltbar
 const require = createRequire(import.meta.url);
 
 // Playwright liegt global; NODE_PATH ist leer, also selbst auflösen.
 function loadPlaywright() {
-  const daheim = process.env.HOME || "";
+  const basis = process.env.SUPERBROWSER_HOME || `${process.env.HOME || ""}/.superbrowser`;
   for (const id of [
     // Zuerst die Kopie, die install.sh mitbringt — dann ist das Skript von
     // einer globalen Installation unabhängig.
-    `${daheim}/.agent-browser/lib/node_modules/playwright-core`,
+    `${basis}/lib/node_modules/playwright-core`,
     "playwright-core",
     "/opt/homebrew/lib/node_modules/playwright-core",
     "/usr/local/lib/node_modules/playwright-core",
@@ -135,7 +135,7 @@ const source = Buffer.concat(chunks).toString("utf8").trim();
 if (!source) {
   process.stderr.write(
     "Kein Skript auf stdin. Aufruf:\n" +
-      "  node ~/.agent-browser/tools/browser.mjs <<'EOF'\n" +
+      "  node ~/.superbrowser/tools/browser.mjs <<'EOF'\n" +
       "  await open('http://localhost:3000')\n  log(await snap())\n  EOF\n",
   );
   process.exit(2);
@@ -161,7 +161,7 @@ try {
 } catch (err) {
   process.stderr.write(
     `Keine Verbindung zu ${CDP_URL} — läuft der Browser?\n` +
-      `Starten mit: ~/.agent-browser/tools/start-browser.sh\n(${err.message})\n`,
+      `Starten mit: ~/.superbrowser/tools/start-browser.sh\n(${err.message})\n`,
   );
   process.exit(3);
 }
@@ -209,7 +209,7 @@ ctx.on("page", watch);
 function helfer(hole) {
   // Das Overlay wird bei JEDEM paint mitgeschickt, ist aber durch seinen
   // eigenen `window.__cd`-Riegel ein Nulldurchgang, wenn es schon steht. So
-  // heilt auch ein Tab, den weder addInitScript noch Parallell erwischt hat.
+  // heilt auch ein Tab, den addInitScript nicht erwischt hat.
   // Als Anweisungsblock, nicht als Komma-Ausdruck: die Datei enthält
   // Kommentare und schließt mit einem Semikolon.
   const paint = (js) =>
@@ -295,20 +295,38 @@ function helfer(hole) {
     return hole().evaluate(SNAP(opts.limit ?? 60));
   }
 
-  // Jeder Tab liefert sein EIGENES, aktuelles Bild — auch als Hintergrund-Tab
-  // und auch bei MINIMIERTEM Fenster (gemessen 30.8.2026: 91 ms, Bild
-  // aktualisiert sich, Screencast läuft daneben mit 10 fps weiter). Der
-  // frühere Minimier-/Wiederherstell-Tanz war unnötig und ließ das Fenster
-  // kurz aufblitzen — genau das, was er verhindern sollte.
+  // Zwei Wege, weil der bequeme nicht immer trägt.
   //
-  // page.screenshot() statt rohem Page.captureScreenshot, weil letzteres die
-  // FENSTERfläche nimmt: liegt der Tab im Hintergrund und hat das Fenster
-  // seither seine Größe geändert, behält der Tab sein altes Layout und das
-  // Bild bekommt schwarze Ränder. Playwright schneidet auf den Viewport der
-  // Seite zu.
+  // `page.screenshot()` schneidet korrekt auf den Viewport zu — rohes
+  // `Page.captureScreenshot` nimmt die FENSTERfläche und liefert schwarze
+  // Ränder, wenn der Tab im Hintergrund liegt und sein Fenster inzwischen
+  // eine andere Größe hat. Nur läuft Playwrights Weg gelegentlich in den
+  // Timeout, reproduzierbar direkt nach dem Start eines frischen Browsers,
+  // ohne dass sich ein Muster festnageln ließ (Fensterzustand, Overlay,
+  // addInitScript, minimiert oder nicht — alles ausgeschlossen).
+  //
+  // Der rohe Weg lief dagegen in JEDER Messung durch, in 17 bis 37 ms. Also:
+  // erst der genaue, kurz angebunden — dann der zuverlässige, von Hand auf
+  // den Viewport geschnitten.
   async function shot(name = "shot") {
     const path = `${process.env.TMPDIR || "/tmp"}/${name}-${Date.now()}.png`;
-    await hole().screenshot({ path, timeout: 10000 });
+    try {
+      await hole().screenshot({ path, timeout: 4000 });
+      return path;
+    } catch {
+      // weiter unten
+    }
+    const cdp = await ctx.newCDPSession(hole());
+    try {
+      const { cssLayoutViewport: v } = await cdp.send("Page.getLayoutMetrics", {});
+      const { data } = await cdp.send("Page.captureScreenshot", {
+        format: "png",
+        clip: { x: 0, y: 0, width: v.clientWidth, height: v.clientHeight, scale: 1 },
+      });
+      await writeFile(path, Buffer.from(data, "base64"));
+    } finally {
+      await cdp.detach().catch(() => {});
+    }
     return path;
   }
 

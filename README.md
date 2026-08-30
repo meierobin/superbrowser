@@ -1,4 +1,4 @@
-# Arbeits-Browser für Claude Code
+# superbrowser
 
 Ein eigener Chrome, den ein Agent fernsteuern darf — mit eigenem Profil,
 getrennt vom persönlichen Browser. Claude öffnet Seiten darin, klickt, tippt,
@@ -18,12 +18,12 @@ Danach Claude Code einmal neu starten. Ab dann versteht er Sätze wie
 
 | Wohin | Was |
 |---|---|
-| `~/.agent-browser/chrome` | Chrome for Testing (eigener Download) |
-| `~/.agent-browser/profile` | dessen Profil — Logins bleiben erhalten |
-| `~/.agent-browser/mcp` | `chrome-devtools-mcp`, auf kurze Wartezeiten gepatcht |
-| `~/.agent-browser/lib` | `playwright-core` für den Code-Modus |
-| `~/.agent-browser/tools` | `browser.mjs`, `start-browser.sh`, Overlay |
-| `~/.claude/skills/agent-browser/` | die Anleitung, die Claude selbst liest |
+| `~/.superbrowser/chrome` | Chrome for Testing (eigener Download) |
+| `~/.superbrowser/profile` | dessen Profil — Logins bleiben erhalten |
+| `~/.superbrowser/mcp` | `chrome-devtools-mcp`, auf kurze Wartezeiten gepatcht |
+| `~/.superbrowser/lib` | `playwright-core` für den Code-Modus |
+| `~/.superbrowser/tools` | `browser.mjs`, `start-browser.sh`, Overlay |
+| `~/.claude/skills/superbrowser/` | die Anleitung, die Claude selbst liest |
 | `~/.claude.json` | MCP-Eintrag `custom-chrome` (Sicherungskopie wird angelegt) |
 
 Voraussetzungen: macOS, Node 20 oder neuer, Claude Code.
@@ -32,8 +32,8 @@ Nichts davon fasst dein normales Chrome an.
 ## Browser starten
 
 ```sh
-~/.agent-browser/tools/start-browser.sh              # leer
-~/.agent-browser/tools/start-browser.sh https://…    # gleich mit einer Seite
+~/.superbrowser/tools/start-browser.sh              # leer
+~/.superbrowser/tools/start-browser.sh https://…    # gleich mit einer Seite
 ```
 
 Läuft er schon, öffnet der zweite Aufruf nur einen Tab. Beenden: Fenster zu.
@@ -47,7 +47,7 @@ Konsole sauber". Ein Aufruf, eine Antwort.
 alle Schritte am Stück, statt pro Klick eine Modellrunde:
 
 ```sh
-node ~/.agent-browser/tools/browser.mjs <<'EOF'
+node ~/.superbrowser/tools/browser.mjs <<'EOF'
 await open('http://localhost:3000/login')
 await fill('#mail', 'test@example.com', 'Mail eintragen')
 await click('button[type=submit]', 'Anmelden')
@@ -74,7 +74,7 @@ der Deckel läuft bei jedem einzelnen Aufruf voll aus:
 | roher CDP-Aufruf | 0,25 ms |
 
 `install.sh` legt deshalb eine eigene Kopie an und patcht sie. Nach einem
-Update des Pakets einmal `node ~/.agent-browser/tools/patch-mcp.mjs` nachziehen.
+Update des Pakets einmal `node ~/.superbrowser/tools/patch-mcp.mjs` nachziehen.
 
 Zwei weitere Eingriffe stecken im selben Patch: neue Seiten gehen im
 Hintergrund auf und ihr Fenster startet minimiert — sonst reißt jede Seite,
@@ -89,6 +89,6 @@ die ein Agent öffnet, den Fokus an sich, mitten in deiner Arbeit.
 ## Wieder loswerden
 
 ```sh
-rm -rf ~/.agent-browser ~/.claude/skills/agent-browser
+rm -rf ~/.superbrowser ~/.claude/skills/superbrowser
 # und den Eintrag "custom-chrome" aus ~/.claude.json löschen
 ```

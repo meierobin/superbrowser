@@ -4,22 +4,26 @@
 #   ./install.sh
 #
 # Was danach da ist:
-#   ~/.agent-browser/chrome    ein eigener Chrome (Chrome for Testing)
-#   ~/.agent-browser/profile   dessen Profil — Logins bleiben erhalten
-#   ~/.agent-browser/mcp       chrome-devtools-mcp, gepatcht auf kurze Wartezeiten
-#   ~/.agent-browser/lib       playwright-core für den Code-Modus
-#   ~/.agent-browser/tools     browser.mjs, start-browser.sh, Overlay
-#   ~/.claude/skills/agent-browser/SKILL.md
+#   ~/.superbrowser/chrome    ein eigener Chrome (Chrome for Testing)
+#   ~/.superbrowser/profile   dessen Profil — Logins bleiben erhalten
+#   ~/.superbrowser/mcp       chrome-devtools-mcp, gepatcht auf kurze Wartezeiten
+#   ~/.superbrowser/lib       playwright-core für den Code-Modus
+#   ~/.superbrowser/tools     browser.mjs, start-browser.sh, Overlay
+#   ~/.claude/skills/superbrowser/SKILL.md
 #   Eintrag "custom-chrome" in ~/.claude.json
 #
 # Nochmal ausführen ist gefahrlos: alles wird überschrieben, das Profil nicht.
 set -euo pipefail
 HIER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASIS="${AGENT_BROWSER_HOME:-$HOME/.agent-browser}"
-PORT="${AGENT_BROWSER_PORT:-9333}"
+BASIS="${SUPERBROWSER_HOME:-$HOME/.superbrowser}"
+PORT="${SUPERBROWSER_PORT:-9333}"
 # Feste Version: der Patch unten greift an zwei benannten Stellen im Paket an.
 # Bei "@latest" verschiebt sich das früher oder später und der Patch bricht ab.
 MCP_VERSION="${MCP_VERSION:-1.6.0}"
+# Überschreibbar, damit sich das Skript prüfen lässt, ohne eine echte
+# Konfiguration anzufassen — und für Setups, die woanders liegen.
+CLAUDE_JSON="${CLAUDE_JSON:-$HOME/.claude.json}"
+SKILLS_DIR="${SKILLS_DIR:-$HOME/.claude/skills}"
 
 sag() { printf "\n\033[1m%s\033[0m\n" "$1"; }
 fehler() { printf "\033[31m%s\033[0m\n" "$1" >&2; exit 1; }
@@ -49,7 +53,7 @@ sag "3/6  Wartezeiten patchen"
 # Ohne diesen Eingriff wartet der MCP nach JEDER verändernden Aktion auf
 # DOM-Ruhe, mit einem Deckel von 3 Sekunden. Auf animierten Seiten läuft der
 # Deckel jedes Mal voll aus — gemessen 3.111 ms je Aufruf statt 261 ms.
-AGENT_BROWSER_HOME="$BASIS" node "$HIER/tools/patch-mcp.mjs"
+SUPERBROWSER_HOME="$BASIS" node "$HIER/tools/patch-mcp.mjs"
 
 sag "4/6  playwright-core für den Code-Modus"
 mkdir -p "$BASIS/lib"
@@ -60,19 +64,18 @@ sag "5/6  Werkzeuge und Skill ablegen"
 cp "$HIER/tools/browser.mjs" "$HIER/tools/browser-overlay.js" \
    "$HIER/tools/patch-mcp.mjs" "$HIER/tools/start-browser.sh" "$BASIS/tools/"
 chmod +x "$BASIS/tools/start-browser.sh"
-mkdir -p "$HOME/.claude/skills/agent-browser"
-cp "$HIER/skill/SKILL.md" "$HOME/.claude/skills/agent-browser/SKILL.md"
-echo "     ~/.claude/skills/agent-browser/SKILL.md"
+mkdir -p "$SKILLS_DIR/superbrowser"
+cp "$HIER/skill/SKILL.md" "$SKILLS_DIR/superbrowser/SKILL.md"
+echo "     $SKILLS_DIR/superbrowser/SKILL.md"
 
 sag "6/6  MCP in Claude Code eintragen"
-BASIS="$BASIS" PORT="$PORT" node - <<'NODE'
+BASIS="$BASIS" PORT="$PORT" CLAUDE_JSON="$CLAUDE_JSON" node - <<'NODE'
 const fs = require("node:fs");
-const os = require("node:os");
-const pfad = `${os.homedir()}/.claude.json`;
+const pfad = process.env.CLAUDE_JSON;
 let doc = {};
 if (fs.existsSync(pfad)) {
   try { doc = JSON.parse(fs.readFileSync(pfad, "utf8")); }
-  catch { console.error("~/.claude.json ist kein gültiges JSON — bitte selbst nachsehen."); process.exit(1); }
+  catch { console.error(`${pfad} ist kein gültiges JSON — bitte selbst nachsehen.`); process.exit(1); }
   // Sicherheitskopie, bevor an einer Datei gedreht wird, die dem Nutzer gehört.
   fs.copyFileSync(pfad, `${pfad}.bak-vor-agent-browser`);
 }
@@ -82,13 +85,13 @@ doc.mcpServers["custom-chrome"] = {
   command: "sh",
   args: ["-c",
     `exec node ${process.env.BASIS}/mcp/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js` +
-    ` --browserUrl=\${AGENT_BROWSER_URL:-http://127.0.0.1:${process.env.PORT}}`],
+    ` --browserUrl=\${SUPERBROWSER_URL:-http://127.0.0.1:${process.env.PORT}}`],
   // Die gepatchten Wartezeiten. 150/30 ms statt 3000/100 — gemessen 261 ms
   // je Aufruf statt 3.111 ms, ohne dass etwas unzuverlässiger wird.
   env: { CDM_STABLE_DOM_TIMEOUT: "150", CDM_STABLE_DOM_FOR: "30" },
 };
 fs.writeFileSync(pfad, JSON.stringify(doc, null, 2) + "\n");
-console.log("     Eintrag \"custom-chrome\" in ~/.claude.json");
+console.log(`     Eintrag "custom-chrome" in ${pfad}`);
 NODE
 
 sag "Fertig."

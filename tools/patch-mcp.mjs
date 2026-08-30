@@ -17,13 +17,13 @@
  * Nach jedem Update des Pakets neu ausführen — der Eingriff ist idempotent
  * und meldet, wenn schon gepatcht ist.
  *
- *   node ~/.agent-browser/tools/patch-mcp.mjs
+ *   node ~/.superbrowser/tools/patch-mcp.mjs
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const BASIS = process.env.AGENT_BROWSER_HOME || join(homedir(), ".agent-browser");
+const BASIS = process.env.SUPERBROWSER_HOME || join(homedir(), ".superbrowser");
 const PAKET = join(BASIS, "mcp/node_modules/chrome-devtools-mcp/build/src");
 const ZIEL = join(PAKET, "WaitForHelper.js");
 
@@ -136,19 +136,16 @@ if (quelle2.includes("CDM_BACKGROUND_PAGES")) {
  * Fenster bedeutet), fährt macOS es trotzdem mit voller Animation auf den
  * Schirm. Genau das ist das Aufblitzen, das übrig geblieben ist.
  *
- * Parallell selbst macht es beim `open_window` längst richtig: Fenster
- * anlegen, dann sofort `Browser.setWindowBounds {windowState: "minimized"}`.
- * Der Patch gibt dem MCP denselben Handgriff.
+ * Der Handgriff dagegen: Fenster anlegen, dann sofort
+ * `Browser.setWindowBounds {windowState: "minimized"}`.
  *
  * Warum das nichts kaputt macht: Ein minimiertes Fenster rendert weiter —
  * dafür sorgen die Startschalter des Arbeits-Browsers
  * (--disable-backgrounding-occluded-windows und die zwei anderen). CDP,
- * Screenshots und Playwright arbeiten darin normal weiter. Sichtbar wird die
- * Seite, sobald der User das Projekt im Dock öffnet — dann holt Parallell
- * dessen Fenster hoch.
+ * Screenshots und Playwright arbeiten darin normal weiter.
  *
- * Wer die Seite sofort sehen will, nimmt `open_window` aus dem
- * Parallell-MCP (der Weg für "zeig es mir") oder setzt CDM_MINIMIZE_NEW=0.
+ * Wer die Seite sofort sehen will, klappt ihr Fenster von Hand auf oder
+ * setzt CDM_MINIMIZE_NEW=0.
  * ------------------------------------------------------------------------ */
 
 const EINFUEGESTELLE = `        const mcpPage = await this.#createMcpPage(page);`;

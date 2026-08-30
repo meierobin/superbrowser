@@ -3,12 +3,12 @@
 # Agent fernsteuern darf. Das persönliche Chrome bleibt unangetastet — es ist
 # eine andere Installation mit einem anderen Profil.
 #
-#   ~/.agent-browser/tools/start-browser.sh [URL]
+#   ~/.superbrowser/tools/start-browser.sh [URL]
 #
 # Läuft er schon, passiert nichts. Beenden: einfach das Fenster schließen.
 set -euo pipefail
-BASIS="${AGENT_BROWSER_HOME:-$HOME/.agent-browser}"
-PORT="${AGENT_BROWSER_PORT:-9333}"
+BASIS="${SUPERBROWSER_HOME:-$HOME/.superbrowser}"
+PORT="${SUPERBROWSER_PORT:-9333}"
 
 if curl -s --max-time 2 "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1; then
   echo "Läuft bereits auf Port $PORT."

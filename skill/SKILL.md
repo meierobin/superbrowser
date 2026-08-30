@@ -1,5 +1,5 @@
 ---
-name: agent-browser
+name: superbrowser
 description: Steuert einen eigenen Arbeits-Browser (Chrome for Testing) über den custom-chrome MCP. Für Seiten öffnen, klicken, tippen, Screenshots, Konsole und Netzwerk prüfen, lokale Web-Apps testen.
 ---
 
@@ -7,7 +7,7 @@ description: Steuert einen eigenen Arbeits-Browser (Chrome for Testing) über de
 
 Es gibt genau EINEN Browser für Agenten: ein eigener Chrome for Testing mit
 eigenem Profil auf Port `9333`, gestartet über
-`~/.agent-browser/tools/start-browser.sh`. Das persönliche Chrome des Nutzers
+`~/.superbrowser/tools/start-browser.sh`. Das persönliche Chrome des Nutzers
 NIE ansteuern — es ist eine andere Installation, und darin liegen echte
 Logins und offene Arbeit.
 
@@ -43,7 +43,7 @@ CDP-Verbindung, alle Schritte am Stück. Darunter liegt `playwright-core` mit
 `chromium.connectOverCDP(...)`; Logins im Profil bleiben dabei erhalten.
 
 ```sh
-node ~/.agent-browser/tools/browser.mjs <<'EOF'
+node ~/.superbrowser/tools/browser.mjs <<'EOF'
 await open('http://localhost:3000/settings')
 await fill('#name', 'Robin', 'Namen eintragen')
 await click('button[type=submit]', 'Profil speichern')
@@ -109,7 +109,7 @@ await Promise.all([a.close(), b.close()])
 Solange du den Browser bedienst, soll die indigo-lila Vignette sichtbar sein —
 kräftiger Schleier an den Kanten, nach innen weich auslaufend. Sie sagt dem
 Nutzer: hier steuert gerade jemand anders. Der Code steht in
-`~/.agent-browser/tools/browser-overlay.js`; im Code-Modus kommt er
+`~/.superbrowser/tools/browser-overlay.js`; im Code-Modus kommt er
 automatisch über `addInitScript` und überlebt jede Navigation.
 
 Warum er so gebaut ist — gemessen an einer echten Seite:
@@ -145,7 +145,7 @@ Entfernt wird sie am Ende der Bedienung: `vignette(false)` bzw. `__cd.off()`.
 - **„Could not connect" / „ECONNREFUSED":** Der Browser läuft nicht:
 
 ```sh
-~/.agent-browser/tools/start-browser.sh
+~/.superbrowser/tools/start-browser.sh
 ```
 
 - **Fertig-Meldung bei UI-Arbeit:** geänderte Seite laden, Konsole prüfen,
@@ -153,10 +153,10 @@ Entfernt wird sie am Ende der Bedienung: `vignette(false)` bzw. `__cd.off()`.
 
 ## Warum der MCP schnell ist (nicht zurückdrehen)
 
-`custom-chrome` läuft aus `~/.agent-browser/mcp` statt aus `npx …@latest`,
+`custom-chrome` läuft aus `~/.superbrowser/mcp` statt aus `npx …@latest`,
 weil das Paket nach jeder verändernden Aktion auf 100 ms DOM-Ruhe wartet, mit
 3-Sekunden-Deckel — auf animierten Seiten läuft der Deckel immer voll aus
 (gemessen 3.111 ms pro Aufruf statt 261 ms). Einstellbar über
 `CDM_STABLE_DOM_TIMEOUT`/`CDM_STABLE_DOM_FOR`, beide sind im MCP-Eintrag
 gesetzt. Nach einem Paket-Update einmal
-`node ~/.agent-browser/tools/patch-mcp.mjs` laufen lassen.
+`node ~/.superbrowser/tools/patch-mcp.mjs` laufen lassen.
