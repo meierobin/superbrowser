@@ -12,7 +12,7 @@
 // statt pro Schritt eine Modellrunde.
 //
 // Vorgeladen: p (Playwright-Page), ctx, browser, open, snap, click, fill,
-//             type, say, log, shot, errors, vignette, point, tab, seite.
+//             type, say, log, shot, errors, netz, vignette, point, tab, seite.
 //
 // MEHRERE TABS GLEICHZEITIG: `tab(url)` gibt einen eigenen Satz Helfer für
 // einen eigenen Tab zurück. Die laufen echt parallel — gemessen sind sechs
@@ -215,6 +215,14 @@ function P() {
 }
 
 const consoleErrors = [];
+/// Mitgeschnittene Anfragen. Ohne MCP gäbe es sonst gar keinen Netzwerk-Blick
+/// — und „warum lädt das nicht" ist die Frage, für die man ihn braucht.
+/// Gedeckelt, damit eine lange Sitzung nicht den Speicher füllt.
+const anfragen = [];
+const merken = (e) => {
+  anfragen.push(e);
+  if (anfragen.length > 400) anfragen.shift();
+};
 const watch = (pg) => {
   // Bei parallelen Tabs steht sonst nicht dabei, WO der Fehler herkam.
   const woher = () => {
@@ -225,6 +233,17 @@ const watch = (pg) => {
     if (m.type() === "error") consoleErrors.push(woher() + m.text().slice(0, 300));
   });
   pg.on("pageerror", (e) => consoleErrors.push(woher() + String(e).slice(0, 300)));
+  pg.on("response", (r) => {
+    merken({ status: r.status(), method: r.request().method(), url: r.url() });
+  });
+  pg.on("requestfailed", (r) => {
+    merken({
+      status: 0,
+      method: r.method(),
+      url: r.url(),
+      fehler: r.failure()?.errorText ?? "abgebrochen",
+    });
+  });
 };
 ctx.pages().forEach(watch);
 // Neue Tabs nur beobachten, NICHT zur aktuellen Seite machen — sonst zieht ein
@@ -399,6 +418,15 @@ const seite = () => P();
 
 const errors = () => consoleErrors;
 
+/// Was das Netz gemacht hat. Ohne Argument nur das Auffällige — Fehlschläge
+/// und alles ab Status 400. Das ist in neun von zehn Fällen die Frage;
+/// `netz({ alle: true })` zeigt den Rest.
+const netz = ({ alle = false, filter = "" } = {}) =>
+  anfragen
+    .filter((a) => alle || a.status === 0 || a.status >= 400)
+    .filter((a) => !filter || a.url.includes(filter))
+    .map((a) => `${a.status || a.fehler} ${a.method} ${a.url.slice(0, 110)}`);
+
 // ── Skript ausführen ───────────────────────────────────────────────────────
 const p = haupt.p;
 
@@ -407,11 +435,11 @@ let code = 0;
 try {
   const run = new AsyncFunction(
     "p", "ctx", "browser", "open", "snap", "click", "fill", "type",
-    "say", "log", "shot", "errors", "vignette", "point", "tab", "seite",
+    "say", "log", "shot", "errors", "netz", "vignette", "point", "tab", "seite",
     source,
   );
   await run(p, ctx, browser, open, snap, click, fill, type,
-            say, log, shot, errors, vignette, point, tab, seite);
+            say, log, shot, errors, netz, vignette, point, tab, seite);
 } catch (err) {
   lines.push(`FEHLER: ${err?.message || err}`);
   code = 1;
