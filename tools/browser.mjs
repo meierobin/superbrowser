@@ -218,9 +218,9 @@ const consoleErrors = [];
 /// ALLE Konsolenmeldungen, nicht nur Fehler — das Gegenstück zu
 /// `list_console_messages`. Gedeckelt wie die Anfragen.
 const meldungen = [];
-/// Mitgeschnittene Anfragen. Ohne MCP gäbe es sonst gar keinen Netzwerk-Blick
-/// — und „warum lädt das nicht" ist die Frage, für die man ihn braucht.
-/// Gedeckelt, damit eine lange Sitzung nicht den Speicher füllt.
+/// Mitgeschnittene Anfragen — „warum lädt das nicht" ist die Frage, für die
+/// man sie braucht. Gedeckelt, damit eine lange Sitzung nicht den Speicher
+/// füllt.
 const anfragen = [];
 const merken = (e) => {
   anfragen.push(e);
@@ -397,13 +397,13 @@ function helfer(hole) {
   }
 
 
-  /// Der Barrierefreiheits-Baum der Seite — das Gegenstück zu `take_snapshot`
-  /// aus dem MCP und der Weg, eine UNBEKANNTE Seite zu verstehen.
+  /// Der Barrierefreiheits-Baum der Seite — der Weg, eine UNBEKANNTE Seite zu
+  /// verstehen, ohne ein Bild anzuschauen.
   ///
   /// Anders als `snap()` (das CSS-Selektoren zum Weiterarbeiten liefert) zeigt
   /// das hier die Struktur, wie ein Screenreader sie sieht: Rollen und
-  /// berechnete Namen, ohne Deko-Container. Beides zusammen ersetzt, was der
-  /// MCP in einem Aufruf lieferte — nur ohne die 6.000 Token.
+  /// berechnete Namen, ohne Deko-Container. Beides zusammen beantwortet „was
+  /// ist auf dieser Seite" für ein paar hundert Token.
   async function baum({ limit = 120, alle = false } = {}) {
     const cdp = await ctx.newCDPSession(hole());
     try {

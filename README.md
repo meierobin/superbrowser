@@ -71,8 +71,8 @@ Screenshots.
 ## Was der Agent NICHT tut
 
 - Dein persönliches Chrome anfassen. Er kennt nur Port 9333.
-- An deiner Claude-Konfiguration drehen. Es wird kein MCP eingetragen, nichts
-  registriert — nur ein Ordner angelegt und eine Skill-Datei abgelegt.
+- An deiner Claude-Konfiguration drehen. Es wird nichts registriert — nur ein
+  Ordner angelegt und eine Anleitung für Claude abgelegt.
 - Fenster ungefragt nach vorn holen. Alles läuft im Hintergrund weiter,
   Screenshots funktionieren auch bei minimiertem Fenster.
 
