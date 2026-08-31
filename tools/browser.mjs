@@ -215,6 +215,9 @@ function P() {
 }
 
 const consoleErrors = [];
+/// ALLE Konsolenmeldungen, nicht nur Fehler — das Gegenstück zu
+/// `list_console_messages`. Gedeckelt wie die Anfragen.
+const meldungen = [];
 /// Mitgeschnittene Anfragen. Ohne MCP gäbe es sonst gar keinen Netzwerk-Blick
 /// — und „warum lädt das nicht" ist die Frage, für die man ihn braucht.
 /// Gedeckelt, damit eine lange Sitzung nicht den Speicher füllt.
@@ -230,6 +233,9 @@ const watch = (pg) => {
     return u && lebt().length > 1 ? `[${u.replace(/^https?:\/\//, "").slice(0, 40)}] ` : "";
   };
   pg.on("console", (m) => {
+    const zeile = `${m.type()}: ${woher()}${m.text().slice(0, 300)}`;
+    meldungen.push(zeile);
+    if (meldungen.length > 400) meldungen.shift();
     if (m.type() === "error") consoleErrors.push(woher() + m.text().slice(0, 300));
   });
   pg.on("pageerror", (e) => consoleErrors.push(woher() + String(e).slice(0, 300)));
@@ -390,6 +396,55 @@ function helfer(hole) {
     return path;
   }
 
+
+  /// Der Barrierefreiheits-Baum der Seite — das Gegenstück zu `take_snapshot`
+  /// aus dem MCP und der Weg, eine UNBEKANNTE Seite zu verstehen.
+  ///
+  /// Anders als `snap()` (das CSS-Selektoren zum Weiterarbeiten liefert) zeigt
+  /// das hier die Struktur, wie ein Screenreader sie sieht: Rollen und
+  /// berechnete Namen, ohne Deko-Container. Beides zusammen ersetzt, was der
+  /// MCP in einem Aufruf lieferte — nur ohne die 6.000 Token.
+  async function baum({ limit = 120, alle = false } = {}) {
+    const cdp = await ctx.newCDPSession(hole());
+    try {
+      await cdp.send("Accessibility.enable");
+      const { nodes } = await cdp.send("Accessibility.getFullAXTree");
+      const nach = new Map(nodes.map((n) => [n.nodeId, n]));
+      const zeilen = [];
+      const lauf = (id, tiefe) => {
+        if (zeilen.length >= limit) return;
+        const n = nach.get(id);
+        if (!n) return;
+        const rolle = n.role?.value ?? "";
+        const name = (n.name?.value ?? "").replace(/\s+/g, " ").trim();
+        const zeigen = !n.ignored && (alle || (name && rolle !== "generic" && rolle !== "none"));
+        if (zeigen) {
+          zeilen.push("  ".repeat(Math.min(tiefe, 8)) + rolle + (name ? ` "${name.slice(0, 70)}"` : ""));
+        }
+        for (const kind of n.childIds ?? []) lauf(kind, zeigen ? tiefe + 1 : tiefe);
+      };
+      if (nodes[0]) lauf(nodes[0].nodeId, 0);
+      return zeilen;
+    } finally {
+      await cdp.detach().catch(() => {});
+    }
+  }
+
+  /// Dialoge (alert/confirm/prompt) beantworten, statt daran hängen zu
+  /// bleiben. Ohne das blockiert ein `confirm()` jede weitere Aktion.
+  function dialoge(aktion = "accept", text = "") {
+    hole().on("dialog", (d) => {
+      log(`Dialog (${d.type()}): ${d.message().slice(0, 120)} → ${aktion}`);
+      (aktion === "dismiss" ? d.dismiss() : d.accept(text)).catch(() => {});
+    });
+  }
+
+  /// Fenstergröße der Seite setzen — für „sieht das auf dem Handy gut aus".
+  const groesse = (w, h) => hole().setViewportSize({ width: w, height: h });
+
+  /// Datei in ein <input type=file> legen.
+  const hochladen = (sel, ...pfade) => hole().locator(sel).first().setInputFiles(pfade);
+
   const vignette = (on = true) =>
     on ? paint("__cd.vig()") : hole().evaluate(`window.__cd && __cd.off()`).catch(() => {});
 
@@ -399,11 +454,13 @@ function helfer(hole) {
     get: (_, k) => { const g = hole(); return typeof g[k] === "function" ? g[k].bind(g) : g[k]; },
   });
 
-  return { p, open, snap, click, fill, type, say, shot, point, vignette, paint };
+  return { p, open, snap, baum, click, fill, type, say, shot, point,
+           dialoge, groesse, hochladen, vignette, paint };
 }
 
 const haupt = helfer(P);
-const { open: openAuf, snap, click, fill, type, say, shot, point, vignette } = haupt;
+const { open: openAuf, snap, baum, click, fill, type, say, shot, point,
+        dialoge, groesse, hochladen, vignette } = haupt;
 
 // open() legt bei Bedarf erst eine Seite an — das kann nur der globale Satz,
 // weil ein tab() seine Seite schon hat.
@@ -429,6 +486,9 @@ const seite = () => P();
 
 const errors = () => consoleErrors;
 
+/// ALLE Konsolenmeldungen — `konsole()` alles, `konsole('warning')` gefiltert.
+const konsole = (typ = "") => (typ ? meldungen.filter((z) => z.startsWith(typ + ":")) : meldungen);
+
 /// Was das Netz gemacht hat. Ohne Argument nur das Auffällige — Fehlschläge
 /// und alles ab Status 400. Das ist in neun von zehn Fällen die Frage;
 /// `netz({ alle: true })` zeigt den Rest.
@@ -446,11 +506,13 @@ let code = 0;
 try {
   const run = new AsyncFunction(
     "p", "ctx", "browser", "open", "snap", "click", "fill", "type",
-    "say", "log", "shot", "errors", "netz", "vignette", "point", "tab", "seite",
+    "say", "log", "shot", "errors", "netz", "konsole", "vignette", "point", "tab", "seite",
+    "baum", "dialoge", "groesse", "hochladen",
     source,
   );
   await run(p, ctx, browser, open, snap, click, fill, type,
-            say, log, shot, errors, netz, vignette, point, tab, seite);
+            say, log, shot, errors, netz, konsole, vignette, point, tab, seite,
+            baum, dialoge, groesse, hochladen);
 } catch (err) {
   lines.push(`FEHLER: ${err?.message || err}`);
   code = 1;
